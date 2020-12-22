@@ -103,6 +103,7 @@ def is_url(url):
 
 
 def format_content(url):
+    debug(f'format_content({url}) called.')
     cmd = [
         'readable',
         '--quiet',
@@ -115,6 +116,7 @@ def format_content(url):
 
 
 def convert_to_markdown(html):
+    debug('convert_to_markdown() called.')
     html = re.sub('\n+', '\n', html)
     cmd = ['pandoc', '--from', 'html', '--to', 'markdown']
 
@@ -127,6 +129,7 @@ def convert_to_markdown(html):
 
 
 def exec(cmd, errmsg):
+    debug(f'exec({cmd}) called.')
     output = Popen(cmd, text=True, stdout=PIPE)
 
     stdout, _ = output.communicate()

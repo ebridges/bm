@@ -1,15 +1,18 @@
 from os.path import basename, expanduser
 from sys import argv, exit
 from argparse import ArgumentParser
-from logging import basicConfig, DEBUG, INFO, info, error
+from logging import basicConfig, DEBUG, INFO, info, error, debug
 from datetime import datetime
 from urllib.parse import urlparse
-from subprocess import Popen, PIPE, run
+from subprocess import Popen, PIPE, run, call
 from json import loads
+from textwrap import fill
+from tempfile import NamedTemporaryFile
 import re
 
 
 DEFAULT_JOURNAL = expanduser('~/Dropbox/Journals/bookmarks')
+EDITOR = 'emacs'
 
 
 def add(url):
@@ -37,6 +40,54 @@ def add(url):
     except Exception as e:
         error(str(e))
         return 10
+
+
+def format_bookmark(location, author, title, excerpt, md, edit):
+    debug(f'format_bookmark("{title}") called.')
+
+    now = datetime.now().isoformat('T', 'seconds')
+    if not location:
+        raise ValueError('Bookmark URL cannot be empty.')
+
+    bookmark = ''
+    bookmark = bookmark + f'Date: {now}  \n'
+    bookmark = bookmark + f'Location: {location}  \n'
+    if title:
+        bookmark = bookmark + f'Title: {title}  \n'
+    if author:
+        bookmark = bookmark + f'Author: {author}  \n'
+
+    bookmark = bookmark + '\n'
+
+    bookmark = bookmark + f'# Location\n\n<{location}>\n\n'
+
+    if title:
+        bookmark = bookmark + f'## Title\n\n{title}\n\n'
+
+    if excerpt:
+        bookmark = bookmark + f'## Excerpt\n\n{fill(excerpt)}\n\n'
+
+    if edit:
+        with NamedTemporaryFile(suffix='.md') as tmp:
+            bookmark = bookmark + '## Comment\n\n'
+            bookmark = bookmark + '## Quotes\n\n'
+            bookmark = bookmark + '## Tags\n\n'
+
+            tmp.write(bookmark.encode('utf-8'))
+            tmp.flush()
+
+            output = call([EDITOR, tmp.name])
+
+            if output != 0:
+                raise Exception('Error when editing bookmark.')
+
+            tmp.flush()
+            tmp.seek(0)
+            bookmark = str(tmp.read(), 'utf-8')
+
+    bookmark = bookmark + f'## Content\n\n{md}\n'
+
+    return bookmark
 
 
 def file():

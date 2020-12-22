@@ -1,7 +1,7 @@
-from os.path import basename, expanduser
+from os.path import basename, expanduser, exists, splitext
 from sys import argv, exit
 from argparse import ArgumentParser
-from logging import basicConfig, DEBUG, INFO, info, error, debug
+from logging import basicConfig, DEBUG, INFO, info, error, debug, warning
 from datetime import datetime
 from urllib.parse import urlparse
 from subprocess import Popen, PIPE, run, call
@@ -40,6 +40,19 @@ def add(url):
     except Exception as e:
         error(str(e))
         return 10
+
+
+def write_bookmark(bookmark, directory, filename):
+    debug(f'write_bookmark({filename}) called.')
+    location = f'{directory}/{filename}'
+    if exists(location):
+        (file, ext) = splitext(filename)
+        filename = f'{directory}/{file}-01.{ext}'
+        warning(f'File exists at location: {location}, writing to {filename}')
+        location = f'{directory}/{filename}'
+    with open(location, 'w') as f:
+        f.write(bookmark)
+    return location
 
 
 def format_bookmark(location, author, title, excerpt, md, edit):

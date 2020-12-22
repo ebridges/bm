@@ -135,7 +135,7 @@ def convert_to_markdown(html):
     if output.returncode != 0:
         raise Exception('Unable to convert html to markdown')
 
-    return output.stdout.decode('utf-8')
+    return re.sub('\n+', '\n', output.stdout.decode('utf-8'))
 
 
 def exec(cmd, errmsg):

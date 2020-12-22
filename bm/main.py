@@ -15,7 +15,8 @@ DEFAULT_JOURNAL = expanduser('~/Dropbox/Journals/bookmarks')
 EDITOR = 'emacs'
 
 
-def add(url):
+def add(url, edit):
+    debug(f'add({url}, {edit}) called.')
     if not is_url(url):
         error(f'Invalid URL: {url}')
         return 10
@@ -27,16 +28,12 @@ def add(url):
         description = re.sub('\n+', '\n', content['excerpt'])
         md = convert_to_markdown(content['htmlContent'])
 
-        print(
-            f'''
-            author: {author}
-            title: {title}
-            excerpt:
-            {description}
-            markdown:
-            {md}
-            '''
-        )
+        bookmark = format_bookmark(url, author, title, description, md, edit)
+
+        location = write_bookmark(bookmark, DEFAULT_JOURNAL, file())
+
+        info(f'Bookmark logged to {location}')
+
     except Exception as e:
         error(str(e))
         return 10
@@ -182,14 +179,20 @@ def app_run():
     )
     sp_start = sp.add_parser('add', help='Adds a bookmark to the journal.')
     sp_start.add_argument('url', metavar='URL', help='URL to bookmark.')
-
+    sp_start.add_argument(
+        '-e',
+        '--edit',
+        nargs='?',
+        const=False,
+        help='In order to edit/add metainfo to bookmark before saving.',
+    )
     args = parser.parse_args()
 
     configure_logging(args.verbose)
 
     if args.action == 'add':
         info(f'bookmarking {args.url}')
-        exit(add(args.url))
+        exit(add(args.url, args.edit))
 
     parser.print_help()
     exit(2)

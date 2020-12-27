@@ -1,101 +1,48 @@
-from os.path import basename, expanduser, exists, splitext
+import sys
 from sys import argv, exit
+from os.path import basename, expanduser
 from argparse import ArgumentParser
-from logging import basicConfig, DEBUG, INFO, info, error, debug, warning
+from logging import basicConfig, DEBUG, INFO, info, error, debug
 from datetime import datetime
 from urllib.parse import urlparse
 from subprocess import Popen, PIPE, run, call
 from json import loads
-from textwrap import fill
+from re import sub
+from uuid import uuid4
 from tempfile import NamedTemporaryFile
-import re
+
+from bm.formatter import formatter
 
 
-DEFAULT_JOURNAL = expanduser('~/Dropbox/Journals/bookmarks')
-EDITOR = 'emacs'
-
-
-def add(url, edit):
+def add(url, format, edit, output):
     debug(f'add({url}, {edit}) called.')
     if not is_url(url):
         error(f'Invalid URL: {url}')
         return 10
 
     try:
-        content = format_content(url)
-        author = content['byline']
-        title = content['title']
-        description = re.sub('\n+', '\n', content['excerpt'])
-        md = convert_to_markdown(content['htmlContent'])
-
-        bookmark = format_bookmark(url, author, title, description, md, edit)
-
-        location = write_bookmark(bookmark, DEFAULT_JOURNAL, file())
-
-        info(f'Bookmark logged to {location}')
+        bookmark_data = format_bookmark_data(url, edit)
+        bookmark = format_bookmark(bookmark_data, format)
+        write_bookmark(output, bookmark)
 
     except Exception as e:
         error(str(e))
         return 10
 
 
-def write_bookmark(bookmark, directory, filename):
-    debug(f'write_bookmark({filename}) called.')
-    location = f'{directory}/{filename}'
-    if exists(location):
-        (file, ext) = splitext(filename)
-        filename = f'{directory}/{file}-01.{ext}'
-        warning(f'File exists at location: {location}, writing to {filename}')
-        location = f'{directory}/{filename}'
-    with open(location, 'w') as f:
-        f.write(bookmark)
-    return location
+def write_bookmark(output, bookmark):
+    debug('write_bookmark() called.')
+    output.write(bookmark)
 
 
-def format_bookmark(location, author, title, excerpt, md, edit):
-    debug(f'format_bookmark("{title}") called.')
+def format_bookmark(md, format):
+    debug(f'format_bookmark("{md["title"]}") called.')
 
-    now = datetime.now().isoformat('T', 'seconds')
-    if not location:
+    if not md['location']:
         raise ValueError('Bookmark URL cannot be empty.')
 
-    bookmark = ''
-    bookmark = bookmark + f'Date: {now}  \n'
-    bookmark = bookmark + f'Location: {location}  \n'
-    if title:
-        bookmark = bookmark + f'Title: {title}  \n'
-    if author:
-        bookmark = bookmark + f'Author: {author}  \n'
-
-    bookmark = bookmark + '\n'
-
-    bookmark = bookmark + f'# Location\n\n<{location}>\n\n'
-
-    if title:
-        bookmark = bookmark + f'## Title\n\n{title}\n\n'
-
-    if excerpt:
-        bookmark = bookmark + f'## Excerpt\n\n{fill(excerpt)}\n\n'
-
-    if edit:
-        with NamedTemporaryFile(suffix='.md') as tmp:
-            bookmark = bookmark + '## Comment\n\n'
-            bookmark = bookmark + '## Quotes\n\n'
-            bookmark = bookmark + '## Tags\n\n'
-
-            tmp.write(bookmark.encode('utf-8'))
-            tmp.flush()
-
-            output = call([EDITOR, tmp.name])
-
-            if output != 0:
-                raise Exception('Error when editing bookmark.')
-
-            tmp.flush()
-            tmp.seek(0)
-            bookmark = str(tmp.read(), 'utf-8')
-
-    bookmark = bookmark + f'## Content\n\n{md}\n'
+    fmtr = formatter(format)
+    bookmark = fmtr(md)
 
     return bookmark
 
@@ -112,7 +59,76 @@ def is_url(url):
         return False
 
 
-def format_content(url):
+def collect_editor_input(
+    prompt,
+):
+    with NamedTemporaryFile(suffix='.tmp') as tmp:
+        commented_prompt = f'# {prompt}\n#--------------------\n\n'
+        tmp.write(commented_prompt.encode('utf-8'))
+        tmp.flush()
+
+        editor = 'emacs'  # environ.get('EDITOR', 'emacs')
+        output = call([editor, '+100', tmp.name])  # +100: go to end of file
+
+        if output != 0:
+            raise Exception('Error when collecting input from editor.')
+
+        tmp.flush()
+        tmp.seek(0)
+        content = str(tmp.read(), encoding='utf-8')
+
+        result = []
+        for line in content.split('\n'):
+            line.strip()
+            if not line or line.startswith('#'):
+                continue
+            result.append(line)
+        return result
+
+
+def format_bookmark_data(url, edit):
+    metadata = obtain_metadata(url)
+    bookmark_date = datetime.now().isoformat('T', 'seconds')
+    author = metadata['byline']
+    title = metadata['title']
+    excerpt = sub('\n+', '\n', metadata['excerpt'])
+    md = convert_to_markdown(metadata['htmlContent'])
+
+    if edit:
+        tag_string = input('Enter any tags, delimited by commas')
+        tag_string = ''.join(
+            tag_string.split()
+        )  # strips all whitespace chars from string
+        tags = tag_string.split(',')
+
+        quotes = collect_editor_input('Enter quotes, each on its own line.')
+
+        comments = collect_editor_input(
+            'Enter any comments, each one on its own line.'
+        )  # noqa E501
+    else:
+        tags = []
+        quotes = []
+        comments = []
+
+    return {
+        'id': str(uuid4()),
+        'location': url,
+        'bookmark_date': bookmark_date,
+        'author': author,
+        'title': title,
+        'excerpt': excerpt,
+        'tags': tags,
+        'quotes': quotes,
+        'comments': comments,
+        'content': {
+            'md': md,
+            'html': metadata['htmlContent'],
+        },
+    }
+
+
+def obtain_metadata(url):
     debug(f'format_content({url}) called.')
     cmd = [
         'readable',
@@ -127,7 +143,7 @@ def format_content(url):
 
 def convert_to_markdown(html):
     debug('convert_to_markdown() called.')
-    html = re.sub('\n+', '\n', html)
+    html = sub('\n+', '\n', html)
     cmd = ['pandoc', '--from', 'html', '--to', 'markdown']
 
     output = run(cmd, stdout=PIPE, input=bytes(html, encoding='utf-8'))
@@ -135,7 +151,7 @@ def convert_to_markdown(html):
     if output.returncode != 0:
         raise Exception('Unable to convert html to markdown')
 
-    return re.sub('\n+', '\n', output.stdout.decode('utf-8'))
+    return sub('\n+', '\n', output.stdout.decode('utf-8'))
 
 
 def exec(cmd, errmsg):
@@ -164,35 +180,50 @@ def configure_logging(verbose):
 
 
 def app_run():
+    DEFAULT_JOURNAL = f'~/Dropbox/Journals/bookmarks/{file()}'
+
     parser = ArgumentParser(prog=basename(argv[0]))
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
     parser.add_argument(
-        '-j',
-        '--journal',
+        '-o',
+        '--output',
         nargs='?',
-        const=DEFAULT_JOURNAL,
-        help=f'Location of stored bookmarks. Default: {DEFAULT_JOURNAL}',
+        const=expanduser(DEFAULT_JOURNAL),
+        help='How to output bookmark.  Write to stdout if flag not present.'
+        + f'If flag present without arg, write to [{DEFAULT_JOURNAL}]; '
+        + 'if flag present with arg, write to location specified by arg.',
     )
     sp = parser.add_subparsers(
         title='Add a bookmark',
         dest='action',
     )
-    sp_start = sp.add_parser('add', help='Adds a bookmark to the journal.')
-    sp_start.add_argument('url', metavar='URL', help='URL to bookmark.')
-    sp_start.add_argument(
+    sp_add = sp.add_parser('add', help='Adds a bookmark.')
+    sp_add.add_argument('url', metavar='URL', help='URL to bookmark.')
+    sp_add.add_argument(
         '-e',
         '--edit',
-        nargs='?',
-        const=False,
+        action='store_true',
         help='In order to edit/add metainfo to bookmark before saving.',
     )
+    sp_add.add_argument(
+        '-f',
+        '--format',
+        choices=['md', 'html'],
+        const='md',
+        default='md',
+        nargs='?',
+        help='What format to write out bookmark data. Default: md',
+    )
     args = parser.parse_args()
+
+    if args.output and args.output != '-':
+        sys.stdout = open(args.output, 'w')
 
     configure_logging(args.verbose)
 
     if args.action == 'add':
-        info(f'bookmarking {args.url}')
-        exit(add(args.url, args.edit))
+        info(f'bookmarking {args.url}, {args.edit}')
+        exit(add(args.url, args.format, args.edit, sys.stdout))
 
     parser.print_help()
     exit(2)

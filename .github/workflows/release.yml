@@ -67,6 +67,6 @@ jobs:
         # See this blog post for more info:
         # https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
         upload_url: ${{ steps.create-release.outputs.upload_url }}
-        asset_path: ./build/bm.zip
+        asset_path: ./build/bm-${{ env.RELEASE_VERSION }}.zip
         asset_name: bm.zip
         asset_content_type: application/zip

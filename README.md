@@ -33,6 +33,7 @@ optional arguments:
 
 * [pandoc](https://pandoc.org/installing.html)
 * [readablilty](https://github.com/mozilla/readability)
+* [readability-cli](https://www.npmjs.com/package/readability-cli)
 
 ## Installation
 

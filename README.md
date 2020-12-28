@@ -34,6 +34,12 @@ optional arguments:
 * [pandoc](https://pandoc.org/installing.html)
 * [readablilty](https://github.com/mozilla/readability)
 
+## Installation
+
+1. Download [latest release](https://github.com/ebridges/bm/releases/latest)
+2. Unzip downloaded archive.
+3. Move file named `bm` onto your path, e.g. `~/bin` or `/usr/local/bin`
+
 ## License
 
 MIT

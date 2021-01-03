@@ -40,10 +40,13 @@ jobs:
 
     - name: Bundle executable archive
       run: |
-        mkdir build
-        find . -name __pycache__ -exec rm -rf {} \;
-        python -m zipapp --output build/bm --python '/usr/bin/env python3' --main='main:app_run' bm
-        cd build && zip bm.zip bm
+        mkdir -p build/bin build/src
+        cp README.md LICENSE build/bin
+        find bm -name __pycache__ -exec rm -rf {} \;
+        tar cf - bm | (cd build/src && tar xf -)
+        cd build
+        python -m zipapp --output bin/bm --python '/usr/bin/env python3' --main='bm.main:app_run' src
+        cd bin && zip bm.zip bm README.md LICENSE
 
     - name: Create release
       id: create-release
@@ -67,6 +70,6 @@ jobs:
         # See this blog post for more info:
         # https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
         upload_url: ${{ steps.create-release.outputs.upload_url }}
-        asset_path: ./build/bm.zip
+        asset_path: ./build/bin/bm.zip
         asset_name: bm-${{ env.RELEASE_VERSION }}.zip
         asset_content_type: application/zip

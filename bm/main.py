@@ -47,8 +47,8 @@ def format_bookmark(md, format):
     return bookmark
 
 
-def file():
-    return f'{datetime.now():%Y%M%dT%H%m%S}.md'
+def file(type='html'):
+    return f'{datetime.now():%Y%M%dT%H%m%S}.{type}'
 
 
 def is_url(url):
@@ -209,10 +209,10 @@ def app_run():
         '-f',
         '--format',
         choices=['md', 'html'],
-        const='md',
-        default='md',
+        const='html',
+        default='html',
         nargs='?',
-        help='What format to write out bookmark data. Default: md',
+        help='What format to write out bookmark data. Default: html',
     )
     args = parser.parse_args()
 

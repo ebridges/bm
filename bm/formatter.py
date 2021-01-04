@@ -89,10 +89,7 @@ def html_formatter(md):
                 <dt>Excerpt</dt>
                 <dd>
                     <blockquote class="excerpt">{md['excerpt']}</blockquote>
-                </dd>
-                {quotes}
-                {comments}
-                {tags}
+                </dd>{quotes}{comments}{tags}
                 <dt>Content</dt>
                 <dd>
                     {md['content']['html']}

@@ -198,7 +198,12 @@ def app_run():
         dest='action',
     )
     sp_add = sp.add_parser('add', help='Adds a bookmark.')
-    sp_add.add_argument('url', metavar='URL', help='URL to bookmark.')
+    sp_add.add_argument(
+        '-u',
+        '--url',
+        dest='url',
+        help='URL to bookmark.',
+    )
     sp_add.add_argument(
         '-e',
         '--edit',

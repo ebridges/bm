@@ -184,19 +184,8 @@ def app_run():
 
     parser = ArgumentParser(prog=basename(argv[0]))
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
-    parser.add_argument(
-        '-o',
-        '--output',
-        nargs='?',
-        const=expanduser(DEFAULT_JOURNAL),
-        help='How to output bookmark.  Write to stdout if flag not present.'
-        + f'If flag present without arg, write to [{DEFAULT_JOURNAL}]; '
-        + 'if flag present with arg, write to location specified by arg.',
-    )
-    sp = parser.add_subparsers(
-        title='Add a bookmark',
-        dest='action',
-    )
+
+    sp = parser.add_subparsers(title='Add a bookmark', dest='action')
     sp_add = sp.add_parser('add', help='Adds a bookmark.')
     sp_add.add_argument(
         '-u',
@@ -218,6 +207,15 @@ def app_run():
         default='html',
         nargs='?',
         help='What format to write out bookmark data. Default: html',
+    )
+    sp_add.add_argument(
+        '-o',
+        '--output',
+        nargs='?',
+        const=expanduser(DEFAULT_JOURNAL),
+        help=f'''How to output bookmark.  Write to stdout if flag not present.
+        If flag present without arg, write to [{DEFAULT_JOURNAL}].
+        If flag present with arg, write to location specified by arg.''',
     )
     args = parser.parse_args()
 

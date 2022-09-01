@@ -1,8 +1,9 @@
 import sys
 from sys import argv, exit
 from os.path import basename, expanduser
+from os import environ
 from argparse import ArgumentParser
-from logging import basicConfig, DEBUG, INFO, info, error, debug
+from logging import basicConfig, DEBUG, INFO, info, error, debug, exception
 from datetime import datetime
 from urllib.parse import urlparse
 from subprocess import Popen, PIPE, run, call
@@ -25,8 +26,8 @@ def add(url, format, edit, output):
         bookmark = format_bookmark(bookmark_data, format)
         write_bookmark(output, bookmark)
 
-    except Exception as e:
-        error(str(e))
+    except Exception:
+        exception(f'unable to bookmark URL: {url}')
         return 10
 
 
@@ -47,7 +48,7 @@ def format_bookmark(md, format):
     return bookmark
 
 
-def file(type='html'):
+def filename(type='html'):
     return f'{datetime.now():%Y%M%dT%H%m%S}.{type}'
 
 
@@ -59,15 +60,13 @@ def is_url(url):
         return False
 
 
-def collect_editor_input(
-    prompt,
-):
+def collect_editor_input(prompt):
     with NamedTemporaryFile(suffix='.tmp') as tmp:
         commented_prompt = f'# {prompt}\n#--------------------\n\n'
         tmp.write(commented_prompt.encode('utf-8'))
         tmp.flush()
 
-        editor = 'emacs'  # environ.get('EDITOR', 'emacs')
+        editor = environ.get('EDITOR', 'emacs')
         output = call([editor, '+100', tmp.name])  # +100: go to end of file
 
         if output != 0:
@@ -89,17 +88,26 @@ def collect_editor_input(
 def format_bookmark_data(url, edit):
     metadata = obtain_metadata(url)
     bookmark_date = datetime.now().isoformat('T', 'seconds')
-    author = metadata['byline']
-    title = metadata['title']
-    excerpt = sub('\n+', '\n', metadata['excerpt'])
-    md = convert_to_markdown(metadata['htmlContent'])
+    author = metadata.get('byline')
+    title = metadata.get('title')
+    if metadata.get('excerpt'):
+        excerpt = sub('\n+', '\n', metadata.get('excerpt'))
+    else:
+        excerpt = None
+    html = metadata.get('htmlContent', '')
+    md = ''
+    if html:
+        md = convert_to_markdown(html)
 
     if edit:
         tag_string = input('Enter any tags, delimited by commas')
         tag_string = ''.join(
             tag_string.split()
         )  # strips all whitespace chars from string
-        tags = tag_string.split(',')
+        if tag_string:
+            tags = tag_string.rstrip(',').split(',')
+        else:
+            tags = []
 
         quotes = collect_editor_input('Enter quotes, each on its own line.')
 
@@ -123,7 +131,7 @@ def format_bookmark_data(url, edit):
         'comments': comments,
         'content': {
             'md': md,
-            'html': metadata['htmlContent'],
+            'html': html,
         },
     }
 
@@ -138,7 +146,10 @@ def obtain_metadata(url):
         url,
     ]
 
-    return loads(exec(cmd, f'Unable to format output of URL: {url}'))
+    try:
+        return loads(exec(cmd, f'Unable to format output of URL: {url}'))
+    except Exception:
+        return {}
 
 
 def convert_to_markdown(html):
@@ -156,12 +167,12 @@ def convert_to_markdown(html):
 
 def exec(cmd, errmsg):
     debug(f'exec({cmd}) called.')
-    output = Popen(cmd, text=True, stdout=PIPE)
+    output = Popen(cmd, text=True, stdout=PIPE, stderr=PIPE)
 
-    stdout, _ = output.communicate()
+    stdout, stderr = output.communicate()
 
     if output.returncode != 0:
-        raise Exception(errmsg)
+        raise Exception(f'{errmsg}: the error received is "{stderr}"')
 
     return stdout
 
@@ -180,7 +191,7 @@ def configure_logging(verbose):
 
 
 def app_run():
-    DEFAULT_JOURNAL = f'~/Dropbox/Journals/bookmarks/{file()}'
+    DEFAULT_JOURNAL_DIR = '~/bookmarks'
 
     parser = ArgumentParser(prog=basename(argv[0]))
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -212,21 +223,28 @@ def app_run():
         '-o',
         '--output',
         nargs='?',
-        const=expanduser(DEFAULT_JOURNAL),
+        const=expanduser(DEFAULT_JOURNAL_DIR),
         help=f'''How to output bookmark.  Write to stdout if flag not present.
-        If flag present without arg, write to [{DEFAULT_JOURNAL}].
+        If flag present without arg, write to [{DEFAULT_JOURNAL_DIR}].
         If flag present with arg, write to location specified by arg.''',
     )
     args = parser.parse_args()
 
-    if args.output and args.output != '-':
-        sys.stdout = open(args.output, 'w')
-
     configure_logging(args.verbose)
 
     if args.action == 'add':
-        info(f'bookmarking {args.url}, {args.edit}')
-        exit(add(args.url, args.format, args.edit, sys.stdout))
+        if args.format:
+            bm_file = filename(args.format)
+        else:
+            bm_file = filename()
+
+        if args.output and args.output != '-':
+            file = f'{args.output}/{bm_file}'
+            sys.stdout = open(file, 'w')
+
+        info(f'bookmarking {args.url}, {args.edit} to: {args.output}')
+        result = add(args.url, args.format, args.edit, sys.stdout)
+        exit(result if result else 0)
 
     parser.print_help()
     exit(2)

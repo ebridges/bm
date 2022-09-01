@@ -1,14 +1,14 @@
 repos:
   -   repo: https://github.com/psf/black
-      rev: 20.8b1
+      rev: 22.8.0
       hooks:
       - id: black
-        language_version: python3.9
+        language_version: python3.10
         args: [
           --skip-string-normalization
         ]
   -   repo: https://gitlab.com/pycqa/flake8
-      rev: 3.8.4
+      rev: 5.0.4
       hooks:
       - id: flake8
   -   repo: https://github.com/pre-commit/pre-commit-hooks

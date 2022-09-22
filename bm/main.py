@@ -49,7 +49,7 @@ def format_bookmark(md, format):
 
 
 def filename(type='html'):
-    return f'{datetime.now():%Y%M%dT%H%m%S}.{type}'
+    return f'{datetime.now():%Y%m%dT%H%M%S}.{type}'
 
 
 def is_url(url):

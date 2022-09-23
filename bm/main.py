@@ -190,27 +190,28 @@ def configure_logging(verbose):
     )
 
 
+def url(x):
+    result = urlparse(x)
+    if all([result.scheme, result.netloc]):
+        return x
+    else:
+        raise ValueError('invalid url')
+
+
 def app_run():
-    DEFAULT_JOURNAL_DIR = '~/bookmarks'
+    DEFAULT_JOURNAL_DIR = '~/Documents/notebook/bookmarks'
 
     parser = ArgumentParser(prog=basename(argv[0]))
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
+    # parser.add_argument('-h', '--help', default=False, action='store_true')
 
-    sp = parser.add_subparsers(title='Add a bookmark', dest='action')
-    sp_add = sp.add_parser('add', help='Adds a bookmark.')
-    sp_add.add_argument(
-        '-u',
-        '--url',
-        dest='url',
-        help='URL to bookmark.',
-    )
-    sp_add.add_argument(
+    parser.add_argument(
         '-e',
         '--edit',
         action='store_true',
         help='In order to edit/add metainfo to bookmark before saving.',
     )
-    sp_add.add_argument(
+    parser.add_argument(
         '-f',
         '--format',
         choices=['md', 'html'],
@@ -219,7 +220,7 @@ def app_run():
         nargs='?',
         help='What format to write out bookmark data. Default: html',
     )
-    sp_add.add_argument(
+    parser.add_argument(
         '-o',
         '--output',
         nargs='?',
@@ -228,26 +229,25 @@ def app_run():
         If flag present without arg, write to [{DEFAULT_JOURNAL_DIR}].
         If flag present with arg, write to location specified by arg.''',
     )
+    parser.add_argument('url', type=url)
+
     args = parser.parse_args()
 
     configure_logging(args.verbose)
 
-    if args.action == 'add':
-        if args.format:
-            bm_file = filename(args.format)
-        else:
-            bm_file = filename()
+    if args.format:
+        bm_file = filename(args.format)
+    else:
+        bm_file = filename()
 
-        if args.output and args.output != '-':
-            file = f'{args.output}/{bm_file}'
-            sys.stdout = open(file, 'w')
+    if args.output and args.output != '-':
+        file = f'{args.output}/{bm_file}'
+        sys.stdout = open(file, 'w')
 
-        info(f'bookmarking {args.url}, {args.edit} to: {args.output}')
-        result = add(args.url, args.format, args.edit, sys.stdout)
-        exit(result if result else 0)
+    info(f'bookmarking {args.url} to: {args.output}')
+    result = add(args.url, args.format, args.edit, sys.stdout)
 
-    parser.print_help()
-    exit(2)
+    exit(result if result else 0)
 
 
 if __name__ == '__main__':

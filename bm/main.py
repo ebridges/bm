@@ -95,7 +95,7 @@ def format_bookmark_data(url, edit):
         excerpt = sub('\n+', '\n', metadata.get('excerpt'))
     else:
         excerpt = None
-    html = metadata.get('htmlContent', '')
+    html = metadata.get('html-content', '')
     md = ''
     if html:
         md = convert_to_markdown(html)

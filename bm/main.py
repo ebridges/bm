@@ -87,6 +87,7 @@ def collect_editor_input(prompt):
 
 def format_bookmark_data(url, edit):
     metadata = obtain_metadata(url)
+    debug(f'metadata obtained: {metadata}')
     bookmark_date = datetime.now().isoformat('T', 'seconds')
     author = metadata.get('byline')
     title = metadata.get('title')
@@ -149,6 +150,7 @@ def obtain_metadata(url):
     try:
         return loads(exec(cmd, f'Unable to format output of URL: {url}'))
     except Exception:
+        exception(f'Error when formatting output of URL: {url}.')
         return {}
 
 
